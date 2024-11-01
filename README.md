@@ -31,7 +31,7 @@ This application streams the screen and audio from a server to a client using Fl
    ```bash
    python app.py
    ```
-2. Access the application in your web browser at `http://localhost:5000`.
+2. Access the application in your web browser at `http://<SERVER_IPV4_ADDRESS>:5000`.
 
 ## Configuration
 
