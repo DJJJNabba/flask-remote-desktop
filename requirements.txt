@@ -1,0 +1,7 @@
+Flask
+Flask-Session
+opencv-python-headless
+mss
+numpy
+pyautogui
+pypiwin32
