@@ -3,16 +3,31 @@
 <head>
     <title>Login</title>
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="login-container">
-        <form action="{{ url_for('authenticate') }}" method="post">
-            <label for="password">Password:</label>
-            <input type="password" name="password" id="password" required>
-            <label for="quality">Image Quality (1-100):</label>
-            <input type="number" name="quality" id="quality" min="1" max="100" value="50" required>
-            <button type="submit">Login</button>
-        </form>
+        <div class="login-box">
+            <h1>Welcome</h1>
+            {% if error %}
+                <div class="error-message">{{ error }}</div>
+            {% endif %}
+            <form action="{{ url_for('authenticate') }}" method="post">
+                <div class="input-group">
+                    <label for="password">Password:</label>
+                    <input type="password" name="password" id="password" placeholder="Enter your password" required>
+                </div>
+                <div class="input-group">
+                    <label for="quality">Image Quality (1-100):</label>
+                    <input type="number" name="quality" id="quality" min="1" max="100" value="50" required>
+                </div>
+                <div class="input-group">
+                    <label for="fps">Frames Per Second (1-60):</label>
+                    <input type="number" name="fps" id="fps" min="1" max="60" value="30" required>
+                </div>
+                <button type="submit" class="btn">Login</button>
+            </form>
+        </div>
     </div>
 </body>
-</html> 
+</html>

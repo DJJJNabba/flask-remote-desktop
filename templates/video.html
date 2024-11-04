@@ -3,6 +3,7 @@
 <head>
     <title>Screen Stream</title>
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
 <body tabindex="0">
     <div id="video-container">
@@ -11,11 +12,8 @@
     
     <!-- Full-page overlay with start button -->
     <div id="overlay">
-        <button id="start-btn" onclick="startExperience()">Start</button>
+        <button id="start-btn">Start</button>
     </div>
-    
-    <!-- Fullscreen button -->
-    <button id="fullscreen-btn" onclick="toggleFullscreen()" style="display: none;">Fullscreen</button>
     
     <!-- Audio element -->
     <audio id="audio" controls>
@@ -23,199 +21,265 @@
         Your browser does not support the audio element.
     </audio>
 
+    <!-- Settings and Restart Buttons -->
+    <div class="control-buttons">
+        <button id="fullscreen-btn" title="Toggle Fullscreen">
+            <i class="fas fa-expand"></i>
+        </button>
+        <a href="{{ url_for('settings') }}" class="icon-btn" title="Settings">
+            <i class="fas fa-cog"></i>
+        </a>
+        <a href="{{ url_for('restart') }}" class="icon-btn" title="Restart">
+            <i class="fas fa-redo"></i>
+        </a>
+    </div>
+
+    <!-- JavaScript placed at the end of the body for better performance -->
     <script>
-        const audio = document.getElementById('audio');
-        const overlay = document.getElementById('overlay');
-        const fullscreenBtn = document.getElementById('fullscreen-btn');
-
-        // Ensure audio is muted initially to comply with autoplay policies
-        audio.muted = true;
-
-        function startExperience() {
-            // Unmute and play audio on user interaction
-            audio.muted = false;
-            audio.play().then(() => {
-                console.log('Audio playback started.');
-            }).catch(error => {
-                console.error('Error starting audio playback:', error);
-            });
-
-            // Request fullscreen
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize DOM elements
+            const video = document.getElementById("video");
             const videoContainer = document.getElementById("video-container");
-            if (!document.fullscreenElement) {
-                videoContainer.requestFullscreen();
-            }
+            const audio = document.getElementById('audio');
+            const overlay = document.getElementById('overlay');
+            const fullscreenBtn = document.getElementById('fullscreen-btn');
+            let reconnectInterval;
 
-            // Hide overlay
-            overlay.style.display = 'none';
+            // Pointer lock variables
+            let pointerLocked = false;
+            let pressedKeys = new Set();
 
-            // Show fullscreen button
-            fullscreenBtn.style.display = 'block';
-        }
+            // Start Experience Function
+            function startExperience() {
+                console.log('Start button clicked');
+                // Unmute and play audio on user interaction
+                audio.muted = false;
+                audio.play().then(() => {
+                    console.log('Audio playback started.');
+                }).catch(error => {
+                    console.error('Error starting audio playback:', error);
+                });
 
-        function toggleFullscreen() {
-            const videoContainer = document.getElementById("video-container");
-            if (!document.fullscreenElement) {
-                videoContainer.requestFullscreen();
-            } else {
-                document.exitFullscreen();
-            }
-        }
+                // Request fullscreen
+                if (!document.fullscreenElement) {
+                    videoContainer.requestFullscreen().catch(err => {
+                        console.error(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+                    });
+                }
 
-        // Listen for fullscreen change events
-        document.addEventListener('fullscreenchange', () => {
-            if (document.fullscreenElement) {
-                fullscreenBtn.style.display = 'none';
-            } else {
+                // Hide overlay
+                overlay.style.display = 'none';
+
+                // Show fullscreen button
                 fullscreenBtn.style.display = 'block';
             }
-        });
 
-        const video = document.getElementById("video");
-        const videoContainer = document.getElementById("video-container");
+            // Toggle Fullscreen Function
+            function toggleFullscreen() {
+                if (!document.fullscreenElement) {
+                    videoContainer.requestFullscreen().catch(err => {
+                        console.error(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+                    });
+                } else {
+                    document.exitFullscreen();
+                }
+            }
 
-        // Disable right-click context menu on the video
-        video.addEventListener('contextmenu', event => event.preventDefault());
+            // Handle Fullscreen Change
+            function handleFullscreenChange() {
+                const fullscreenIcon = fullscreenBtn.querySelector('i');
+                if (document.fullscreenElement) {
+                    fullscreenIcon.classList.remove('fa-expand');
+                    fullscreenIcon.classList.add('fa-compress');
+                } else {
+                    fullscreenIcon.classList.remove('fa-compress');
+                    fullscreenIcon.classList.add('fa-expand');
+                }
+            }
 
-        // Disable drag behavior on the video
-        video.addEventListener('dragstart', event => event.preventDefault());
+            // Attempt to Reconnect Video Feed
+            function attemptReconnect() {
+                clearInterval(reconnectInterval);
+                reconnectInterval = setInterval(() => {
+                    if (video) {
+                        video.src = "{{ url_for('video_feed') }}" + "?t=" + new Date().getTime();
+                        console.log('Attempting to reconnect video feed...');
+                    }
+                }, 5000); // Try to reconnect every 5 seconds
+            }
 
-        // Focus the body to capture keyboard events
-        window.onload = function() {
-            document.body.focus();
-        };
+            // Request Pointer Lock
+            function requestPointerLock() {
+                videoContainer.requestPointerLock = videoContainer.requestPointerLock ||
+                                                    videoContainer.mozRequestPointerLock ||
+                                                    videoContainer.webkitRequestPointerLock;
+                videoContainer.requestPointerLock();
+            }
 
-        // Pointer lock variables
-        let pointerLocked = false;
-        let pressedKeys = new Set();
+            // Handle Pointer Lock Change
+            function lockChangeAlert() {
+                if (document.pointerLockElement === videoContainer ||
+                    document.mozPointerLockElement === videoContainer ||
+                    document.webkitPointerLockElement === videoContainer) {
+                    console.log('The pointer lock status is now locked');
+                    pointerLocked = true;
+                    // Hide the cursor
+                    video.style.cursor = 'none';
+                } else {
+                    console.log('The pointer lock status is now unlocked');
+                    pointerLocked = false;
+                    // Show the cursor
+                    video.style.cursor = 'default';
 
-        // Request pointer lock when the video is clicked
-        videoContainer.addEventListener('click', function() {
-            videoContainer.requestPointerLock = videoContainer.requestPointerLock ||
-                                                videoContainer.mozRequestPointerLock ||
-                                                videoContainer.webkitRequestPointerLock;
-            videoContainer.requestPointerLock();
-        });
+                    // Release all pressed keys
+                    pressedKeys.forEach(function(keyCode) {
+                        fetch('/key_press', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ keyCode: keyCode, action: 'up' })
+                        });
+                    });
+                    pressedKeys.clear();
+                }
+            }
 
-        // Listen for pointer lock change events
-        document.addEventListener('pointerlockchange', lockChangeAlert, false);
-        document.addEventListener('mozpointerlockchange', lockChangeAlert, false);
-        document.addEventListener('webkitpointerlockchange', lockChangeAlert, false);
+            // Mouse Movement Handler
+            function handleMouseMove(event) {
+                if (pointerLocked) {
+                    const movementX = event.movementX || event.mozMovementX || event.webkitMovementX || 0;
+                    const movementY = event.movementY || event.mozMovementY || event.webkitMovementY || 0;
 
-        function lockChangeAlert() {
-            if (document.pointerLockElement === videoContainer ||
-                document.mozPointerLockElement === videoContainer ||
-                document.webkitPointerLockElement === videoContainer) {
-                console.log('The pointer lock status is now locked');
-                pointerLocked = true;
-                // Hide the cursor
-                video.style.cursor = 'none';
-            } else {
-                console.log('The pointer lock status is now unlocked');
-                pointerLocked = false;
-                // Show the cursor
-                video.style.cursor = 'default';
+                    fetch('/mouse_move', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            delta_x: movementX,
+                            delta_y: movementY
+                        })
+                    });
+                }
+            }
 
-                // Release all pressed keys
-                pressedKeys.forEach(function(keyCode) {
+            // Mouse Down Handler
+            function handleMouseDown(event) {
+                if (pointerLocked) {
+                    const button = event.button === 0 ? 'left' : event.button === 1 ? 'middle' : 'right';
+                    fetch('/mouse_click', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ button: button, action: 'down' })
+                    });
+                    event.preventDefault();
+                }
+            }
+
+            // Mouse Up Handler
+            function handleMouseUp(event) {
+                if (pointerLocked) {
+                    const button = event.button === 0 ? 'left' : event.button === 1 ? 'middle' : 'right';
+                    fetch('/mouse_click', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ button: button, action: 'up' })
+                    });
+                    event.preventDefault();
+                }
+            }
+
+            // Mouse Wheel Handler
+            function handleMouseWheel(event) {
+                if (pointerLocked) {
+                    event.preventDefault();  // Prevent default scrolling behavior
+                    const deltaY = event.deltaY;
+
+                    fetch('/mouse_scroll', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ delta_y: deltaY })
+                    });
+                }
+            }
+
+            // Key Down Handler
+            function handleKeyDown(event) {
+                // Prevent default behavior for all keys
+                event.preventDefault();
+
+                if (event.repeat) return;
+
+                if (pointerLocked) {
+                    pressedKeys.add(event.keyCode);
+
                     fetch('/key_press', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ keyCode: keyCode, action: 'up' })
+                        body: JSON.stringify({ keyCode: event.keyCode, action: 'down' })
                     });
-                });
-                pressedKeys.clear();
+                }
             }
-        }
 
-        // Mouse movement
-        document.addEventListener('mousemove', function(event) {
-            if (pointerLocked) {
-                const movementX = event.movementX || event.mozMovementX || event.webkitMovementX || 0;
-                const movementY = event.movementY || event.mozMovementY || event.webkitMovementY || 0;
-
-                fetch('/mouse_move', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        delta_x: movementX,
-                        delta_y: movementY
-                    })
-                });
-            }
-        });
-
-        // Mouse buttons
-        document.addEventListener('mousedown', function(event) {
-            if (pointerLocked) {
-                const button = event.button === 0 ? 'left' : event.button === 1 ? 'middle' : 'right';
-                fetch('/mouse_click', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ button: button, action: 'down' })
-                });
+            // Key Up Handler
+            function handleKeyUp(event) {
+                // Prevent default behavior for all keys
                 event.preventDefault();
+
+                if (pointerLocked) {
+                    pressedKeys.delete(event.keyCode);
+
+                    fetch('/key_press', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ keyCode: event.keyCode, action: 'up' })
+                    });
+                }
             }
-        });
 
-        document.addEventListener('mouseup', function(event) {
-            if (pointerLocked) {
-                const button = event.button === 0 ? 'left' : event.button === 1 ? 'middle' : 'right';
-                fetch('/mouse_click', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ button: button, action: 'up' })
-                });
-                event.preventDefault();
+            // Attach Event Listeners
+            function initializeEventListeners() {
+                // Disable right-click context menu on the video
+                video.addEventListener('contextmenu', event => event.preventDefault());
+
+                // Disable drag behavior on the video
+                video.addEventListener('dragstart', event => event.preventDefault());
+
+                // Focus the body to capture keyboard events
+                document.body.focus();
+
+                // Start attempting to reconnect
+                attemptReconnect();
+
+                // Listen for fullscreen change events
+                document.addEventListener('fullscreenchange', handleFullscreenChange);
+                document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+                document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+
+                // Pointer lock and mouse events
+                videoContainer.addEventListener('click', requestPointerLock);
+                document.addEventListener('pointerlockchange', lockChangeAlert, false);
+                document.addEventListener('mozpointerlockchange', lockChangeAlert, false);
+                document.addEventListener('webkitpointerlockchange', lockChangeAlert, false);
+
+                document.addEventListener('mousemove', handleMouseMove);
+                document.addEventListener('mousedown', handleMouseDown);
+                document.addEventListener('mouseup', handleMouseUp);
+                document.addEventListener('wheel', handleMouseWheel, { passive: false });
+
+                // Key events
+                window.addEventListener('keydown', handleKeyDown);
+                window.addEventListener('keyup', handleKeyUp);
             }
-        });
 
-        // Mouse wheel
-        document.addEventListener('wheel', function(event) {
-            if (pointerLocked) {
-                event.preventDefault();  // Prevent default scrolling behavior
-                const deltaY = event.deltaY;
+            // Initialize everything
+            initializeEventListeners();
 
-                fetch('/mouse_scroll', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ delta_y: deltaY })
-                });
-            }
-        }, { passive: false });
+            // Attach Start Button Click Event
+            const startBtn = document.getElementById('start-btn');
+            startBtn.addEventListener('click', startExperience);
 
-        // Key events
-        window.addEventListener('keydown', function(event) {
-            // Prevent default behavior for all keys
-            event.preventDefault();
+            // Attach Fullscreen Button Click Event
+            fullscreenBtn.addEventListener('click', toggleFullscreen);
 
-            if (event.repeat) return;
-
-            if (pointerLocked) {
-                pressedKeys.add(event.keyCode);
-
-                fetch('/key_press', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ keyCode: event.keyCode, action: 'down' })
-                });
-            }
-        });
-
-        window.addEventListener('keyup', function(event) {
-            // Prevent default behavior for all keys
-            event.preventDefault();
-
-            if (pointerLocked) {
-                pressedKeys.delete(event.keyCode);
-
-                fetch('/key_press', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ keyCode: event.keyCode, action: 'up' })
-                });
-            }
         });
     </script>
 </body>
-</html> 
+</html>

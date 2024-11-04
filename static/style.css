@@ -7,36 +7,43 @@ body, html {
     outline: none; /* Remove focus outline */
     background-color: #111; /* Very dark background */
     color: white; /* Default text color */
-    font-family: Arial, sans-serif; /* Default font */
+    font-family: 'Roboto', Arial, sans-serif; /* Updated font */
 }
 
+a {
+    text-decoration: none;
+    color: white;
+}
+
+button, .btn {
+    padding: 10px 20px;
+    background-color: #4CAF50; /* Green */
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    border-radius: 4px;
+    transition: background-color 0.3s;
+}
+
+button:hover, .btn:hover {
+    background-color: #45a049; /* Darker green */
+}
+
+/* Video Page Styles */
 #video-container { 
     display: flex; 
     align-items: center; 
     justify-content: center; 
     height: 100vh; 
     background-color: black; 
+    position: relative;
 }
 
 #video { 
     max-width: 100%; 
     max-height: 100%; 
     object-fit: contain; 
-}
-
-#fullscreen-btn { 
-    position: absolute; 
-    top: 10px; 
-    right: 10px; 
-    padding: 8px; 
-    background: rgba(0, 0, 0, 0.5); 
-    color: white; 
-    border: none; 
-    cursor: pointer; 
-}
-
-#fullscreen-btn:hover { 
-    background: rgba(0, 0, 0, 0.7); 
 }
 
 #overlay {
@@ -60,12 +67,16 @@ body, html {
     cursor: pointer;
     font-size: 24px;
     border-radius: 5px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    transition: transform 0.2s;
 }
 
 #start-btn:hover {
     background-color: #45a049; /* Darker green */
+    transform: scale(1.05);
 }
 
+/* Login Page Styles */
 .login-container {
     display: flex;
     flex-direction: column;
@@ -77,7 +88,101 @@ body, html {
     box-sizing: border-box;
 }
 
-.login-container form {
+.login-box {
+    background-color: #333;
+    padding: 40px;
+    border-radius: 10px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    width: 100%;
+    max-width: 400px;
+    text-align: center;
+}
+
+.login-box h1 {
+    margin-bottom: 20px;
+    font-weight: 700;
+}
+
+.input-group {
+    margin: 15px 0;
+    text-align: left;
+}
+
+.input-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #555;
+    border-radius: 4px;
+    background-color: #444;
+    color: white;
+    box-sizing: border-box;
+    font-size: 16px;
+}
+
+.input-group input:focus {
+    border-color: #4CAF50;
+    outline: none;
+}
+
+.btn {
+    width: 100%;
+    padding: 12px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-size: 18px;
+    border-radius: 4px;
+    transition: background-color 0.3s;
+}
+
+.btn:hover {
+    background-color: #45a049;
+}
+
+.error-message {
+    background-color: #ff4c4c;
+    color: white;
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+}
+
+.back-link {
+    display: inline-block;
+    margin-top: 20px;
+    color: #4CAF50;
+    font-weight: 500;
+}
+
+.back-link:hover {
+    text-decoration: underline;
+}
+
+/* Settings Page Styles */
+.settings-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    background-color: #222; /* Dark background */
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.settings-container h2 {
+    margin-bottom: 20px;
+    font-weight: 700;
+}
+
+.settings-container form {
     background-color: #333;
     padding: 30px;
     border-radius: 8px;
@@ -86,15 +191,16 @@ body, html {
     max-width: 400px;
 }
 
-.login-container label, 
-.login-container input, 
-.login-container button {
+.settings-container label, 
+.settings-container input, 
+.settings-container button {
     display: block;
     margin: 10px 0;
     width: 100%;
+    text-align: left;
 }
 
-.login-container input {
+.settings-container input {
     padding: 12px;
     border: 1px solid #555;
     border-radius: 4px;
@@ -103,12 +209,12 @@ body, html {
     box-sizing: border-box;
 }
 
-.login-container input:focus {
+.settings-container input:focus {
     border-color: #4CAF50;
     outline: none;
 }
 
-.login-container button {
+.settings-container button {
     padding: 12px;
     background-color: #4CAF50;
     color: white;
@@ -119,6 +225,69 @@ body, html {
     transition: background-color 0.3s;
 }
 
-.login-container button:hover {
+.settings-container button:hover {
     background-color: #45a049;
-} 
+}
+
+.error-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    background-color: #222; /* Dark background */
+    text-align: center;
+}
+
+.error-container h1 {
+    font-size: 48px;
+    margin-bottom: 20px;
+}
+
+.error-container p {
+    font-size: 18px;
+    margin-bottom: 30px;
+}
+
+/* Replace the existing #fullscreen-btn and top-bar styles with these new styles */
+.control-buttons {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 1000;
+}
+
+.control-buttons button,
+.control-buttons .icon-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    padding: 0;
+    text-decoration: none;
+}
+
+.control-buttons button:hover,
+.control-buttons .icon-btn:hover {
+    background: rgba(0, 0, 0, 0.8);
+    transform: scale(1.1);
+}
+
+.control-buttons i {
+    font-size: 18px;
+}
+
+/* Remove these styles if they exist */
+.top-bar {
+    display: none;
+}

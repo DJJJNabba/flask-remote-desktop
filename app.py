@@ -12,6 +12,9 @@ from key_mapping import keycode_to_vk  # Import from key_mapping.py
 import threading
 import subprocess
 import pyautogui
+import os
+import sys
+import time
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -19,6 +22,10 @@ Session(app)
 
 PASSWORD = Config.PASSWORD
 IMAGE_QUALITY = 50  # Default image quality
+FPS = 30  # Default Frames Per Second
+
+# Lock for thread-safe operations
+settings_lock = threading.Lock()
 
 # Screen dimensions on the server
 with mss.mss() as sct:
@@ -28,11 +35,19 @@ with mss.mss() as sct:
 
 # MJPEG video streaming
 def generate_frames():
-    global IMAGE_QUALITY  # Use global variable for image quality
+    global IMAGE_QUALITY, FPS  # Use global variables for settings
 
     with mss.mss() as sct:
         monitor = sct.monitors[1]
+        last_time = 0
+        frame_duration = 1 / FPS
+
         while True:
+            current_time = time.time()
+            if current_time - last_time < frame_duration:
+                time.sleep(frame_duration - (current_time - last_time))
+            last_time = current_time
+
             img = sct.grab(monitor)
             frame = np.array(img)
 
@@ -56,8 +71,12 @@ def generate_frames():
             _, jpeg = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), IMAGE_QUALITY])
             frame_data = jpeg.tobytes()
 
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + frame_data + b'\r\n')
+            try:
+                yield (b'--frame\r\n'
+                       b'Content-Type: image/jpeg\r\n\r\n' + frame_data + b'\r\n')
+            except GeneratorExit:
+                print("Client disconnected from video feed.")
+                break
 
 def generate_audio():
     # Use FFmpeg to capture and encode audio
@@ -67,10 +86,22 @@ def generate_audio():
         '-i', 'audio=CABLE Output (VB-Audio Virtual Cable)',  # Ensure the device name is a string
         '-acodec', 'aac',
         '-f', 'adts',  # Use ADTS format for AAC
+        '-hide_banner',  # Hide FFmpeg compilation info
+        '-loglevel', 'error',  # Only show errors
+        '-nostdin',  # Disable interaction
         '-'
     ]
 
-    process = subprocess.Popen(ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    startupinfo = subprocess.STARTUPINFO()
+    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    startupinfo.wShowWindow = subprocess.SW_HIDE
+
+    process = subprocess.Popen(
+        ffmpeg_command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        startupinfo=startupinfo
+    )
 
     while True:
         data = process.stdout.read(1024)
@@ -92,23 +123,32 @@ def login():
 
 @app.route('/authenticate', methods=['POST'])
 def authenticate():
-    global IMAGE_QUALITY  # Access global variable for image quality
+    global IMAGE_QUALITY, FPS  # Access global variables for settings
 
     password = request.form.get('password')
     quality = request.form.get('quality', 50)
+    fps = request.form.get('fps', 30)
     if password == PASSWORD:
         session['authenticated'] = True
-        # Set the quality as a global variable
+        # Set the quality and FPS as global variables
         try:
-            quality = int(quality)
-            if quality < 1 or quality > 100:
-                quality = 50
+            with settings_lock:
+                quality = int(quality)
+                if quality < 1 or quality > 100:
+                    quality = 50
+                IMAGE_QUALITY = quality
+
+                fps = int(fps)
+                if fps < 1 or fps > 60:
+                    fps = 30
+                FPS = fps
         except ValueError:
-            quality = 50
-        IMAGE_QUALITY = quality  # Set the global image quality
+            with settings_lock:
+                IMAGE_QUALITY = 50
+                FPS = 30
         return redirect(url_for('video_page'))
     else:
-        return "Incorrect password. Please go back and try again.", 401
+        return render_template('login.html', error="Incorrect password. Please try again."), 401
 
 @app.route('/video')
 def video_page():
@@ -324,5 +364,57 @@ def key_press():
 
     return '', 204
 
+@app.route('/settings', methods=['GET', 'POST'])
+def settings():
+    global IMAGE_QUALITY, FPS  # Declare globals to modify
+    if not session.get('authenticated'):
+        return redirect(url_for('login'))
+
+    if request.method == 'POST':
+        quality = request.form.get('quality', 50)
+        fps = request.form.get('fps', 30)
+        try:
+            with settings_lock:
+                quality = int(quality)
+                if quality < 1 or quality > 100:
+                    quality = 50
+                IMAGE_QUALITY = quality
+
+                fps = int(fps)
+                if fps < 1 or fps > 60:
+                    fps = 30
+                FPS = fps
+            return redirect(url_for('video_page'))  # Ensure 'video_page' route exists
+        except ValueError:
+            return render_template('settings.html', error="Invalid input. Please enter valid numbers.")
+
+    return render_template('settings.html', quality=IMAGE_QUALITY, fps=FPS)
+
+@app.route('/restart', methods=['GET'])
+def restart():
+    if not session.get('authenticated'):
+        return redirect(url_for('login'))
+
+    try:
+        # Execute restart.py to handle the restart
+        python = sys.executable
+        restart_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "restart.py")
+        subprocess.Popen([python, restart_script])
+        
+        # Immediately redirect to /login before the server shuts down
+        return redirect(url_for('login'))
+    except Exception as e:
+        print(f"Failed to restart application: {e}")
+        return "Failed to restart application.", 500
+
+@app.errorhandler(404)
+def page_not_found(e):
+    return render_template('404.html'), 404
+
+@app.errorhandler(500)
+def server_error(e):
+    return render_template('500.html'), 500
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, threaded=True, debug=False)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, threaded=True, debug=False)

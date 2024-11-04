@@ -5,3 +5,5 @@ mss
 numpy
 pyautogui
 pypiwin32
+PyInstaller
+socket
